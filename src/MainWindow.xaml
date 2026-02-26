@@ -3,22 +3,52 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:oxy="http://oxyplot.org/wpf"
         xmlns:local="clr-namespace:AvionPlot.Views"
-        Title="GraphVisualizer" Height="650" Width="1000">
+        Title="GraphVisualizer"
+        Height="650"
+        Width="1000"
+        AllowDrop="True"
+        Drop="MainWindow_Drop">
+
     <DockPanel>
-        <!-- Меню в отдельном UserControl -->
-        <local:MenuBar x:Name="MenuBarControl" DockPanel.Dock="Top"/>
 
-        <!-- Верхняя панель с чекбоксами и радио-кнопками -->
-        <StackPanel Orientation="Vertical" DockPanel.Dock="Top" Margin="5">
-            <StackPanel Orientation="Horizontal" x:Name="CheckBoxPanel" Margin="0,0,0,5"/>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                <RadioButton Content="Обычный" GroupName="GraphType" IsChecked="True" Checked="GraphTypeChanged" Margin="5"/>
-                <RadioButton Content="Производная" GroupName="GraphType" Checked="GraphTypeChanged" Margin="5"/>
-                <RadioButton Content="Ускорение" GroupName="GraphType" Checked="GraphTypeChanged" Margin="5"/>
-            </StackPanel>
-        </StackPanel>
+        <local:MenuBar x:Name="MenuBarControl"
+                       DockPanel.Dock="Top"/>
 
-        <!-- Основной график -->
-        <oxy:PlotView x:Name="PlotView" DockPanel.Dock="Bottom"/>
+        <!-- Область графика -->
+        <Grid>
+
+            <oxy:PlotView x:Name="PlotView"/>
+
+            <!-- Кнопка сброса масштаба -->
+            <Button Width="40"
+                  Height="40"
+                  FontSize="20"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Bottom"
+                  Margin="40, 70"
+                  Click="ResetZoom_Clicked"
+                  ToolTip="Сбросить масштаб"
+                  Opacity="0.85"
+                  Background="White"
+                  BorderBrush="#CCCCCC"
+                  Cursor="Hand">
+
+              <Button.Template>
+                  <ControlTemplate TargetType="Button">
+                      <Border Background="{TemplateBinding Background}"
+                              BorderBrush="{TemplateBinding BorderBrush}"
+                              BorderThickness="1"
+                              CornerRadius="20">
+                          <ContentPresenter HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"/>
+                      </Border>
+                  </ControlTemplate>
+              </Button.Template>
+
+              ⟳
+            </Button>
+
+        </Grid>
+
     </DockPanel>
 </Window>

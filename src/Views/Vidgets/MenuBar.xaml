@@ -2,11 +2,56 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Height="30">
+
     <Menu x:Name="MainMenu">
+
+        <!-- Файл -->
         <MenuItem Header="Файл">
-            <MenuItem Header="Открыть" x:Name="OpenMenuItem"/>
-            <MenuItem Header="Сохранить"/>
+            <MenuItem Header="Открыть"
+                      x:Name="OpenMenuItem"
+                      InputGestureText="Ctrl+O"/>
+
+            <MenuItem Header="Сохранить"
+                      InputGestureText="Ctrl+S"/>
+
+            <Separator/>
+
+            <MenuItem Header="Выход"
+                      x:Name="ExitMenuItem"
+                      InputGestureText="Alt+F4"/>
         </MenuItem>
-        <MenuItem Header="Выход"/>
+
+        <!-- Выбор графика -->
+        <MenuItem Header="Выбор графика"
+                  x:Name="GraphsMenuItem"/>
+
+        <!-- Функция -->
+        <MenuItem Header="Функция"
+                  x:Name="FunctionMenu">
+
+            <MenuItem Header="Обычный"
+                      IsCheckable="True"
+                      IsChecked="True"
+                      x:Name="NormalModeItem"
+                      InputGestureText="Ctrl+1"/>
+
+            <MenuItem Header="Производная"
+                      IsCheckable="True"
+                      x:Name="DerivativeModeItem"
+                      InputGestureText="Ctrl+2"/>
+
+            <MenuItem Header="Вторая производная"
+                      IsCheckable="True"
+                      x:Name="SecondDerivativeModeItem"
+                      InputGestureText="Ctrl+3"/>
+        </MenuItem>
+
+        <!-- Вид -->
+        <MenuItem Header="Вид">
+            <MenuItem Header="Сбросить масштаб"
+                      x:Name="ResetZoomMenuItem"
+                      InputGestureText="Ctrl+R"/>
+        </MenuItem>
+
     </Menu>
 </UserControl>
