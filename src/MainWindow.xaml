@@ -1,0 +1,24 @@
+﻿<Window x:Class="AvionPlot.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:oxy="http://oxyplot.org/wpf"
+        xmlns:local="clr-namespace:AvionPlot.Views"
+        Title="GraphVisualizer" Height="650" Width="1000">
+    <DockPanel>
+        <!-- Меню в отдельном UserControl -->
+        <local:MenuBar x:Name="MenuBarControl" DockPanel.Dock="Top"/>
+
+        <!-- Верхняя панель с чекбоксами и радио-кнопками -->
+        <StackPanel Orientation="Vertical" DockPanel.Dock="Top" Margin="5">
+            <StackPanel Orientation="Horizontal" x:Name="CheckBoxPanel" Margin="0,0,0,5"/>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                <RadioButton Content="Обычный" GroupName="GraphType" IsChecked="True" Checked="GraphTypeChanged" Margin="5"/>
+                <RadioButton Content="Производная" GroupName="GraphType" Checked="GraphTypeChanged" Margin="5"/>
+                <RadioButton Content="Ускорение" GroupName="GraphType" Checked="GraphTypeChanged" Margin="5"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Основной график -->
+        <oxy:PlotView x:Name="PlotView" DockPanel.Dock="Bottom"/>
+    </DockPanel>
+</Window>

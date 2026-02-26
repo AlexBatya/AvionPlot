@@ -1,0 +1,12 @@
+<UserControl x:Class="AvionPlot.Views.MenuBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Height="30">
+    <Menu x:Name="MainMenu">
+        <MenuItem Header="Файл">
+            <MenuItem Header="Открыть" x:Name="OpenMenuItem"/>
+            <MenuItem Header="Сохранить"/>
+        </MenuItem>
+        <MenuItem Header="Выход"/>
+    </Menu>
+</UserControl>
