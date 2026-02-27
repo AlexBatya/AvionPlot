@@ -40,18 +40,18 @@
                       InputGestureText="Ctrl+3"/>
         </MenuItem>
 
-        <!-- Вид -->
-        <MenuItem Header="Вид">
-            <MenuItem Header="Сбросить масштаб"
-                      x:Name="ResetZoomMenuItem"
-                      InputGestureText="Ctrl+R"/>
-        </MenuItem>
-
         <!-- Новая вкладка Опции -->
         <MenuItem Header="Опции">
             <MenuItem Header="Мат. модель"
                       x:Name="MathModelMenuItem"
                       InputGestureText="Ctrl+E"/>
+        </MenuItem>
+
+        <!-- Вид -->
+        <MenuItem Header="Вид">
+            <MenuItem Header="Сбросить масштаб"
+                      x:Name="ResetZoomMenuItem"
+                      InputGestureText="Ctrl+R"/>
         </MenuItem>
 
     </Menu>

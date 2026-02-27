@@ -142,26 +142,21 @@ namespace AvionPlot.Views
             var values = new List<double>();
             foreach (var row in data) values.Add(selector(row));
 
-            // Определяем активную область сигнала
+            // Игнорируем начальные неподвижные точки
             int startIndex = 0;
-            double threshold = 1.0; // порог минимального изменения
-            for (int i = 1; i < values.Count; i++)
-            {
-                if (Math.Abs(values[i] - values[0]) > threshold)
-                {
-                    startIndex = i;
-                    break;
-                }
-            }
+            while (startIndex < values.Count - 1 && values[startIndex] == values[startIndex + 1])
+                startIndex++;
 
-            var activeValues = values.GetRange(startIndex, values.Count - startIndex);
+            if (startIndex >= values.Count - 2) return;
 
-            // Находим первые два пика активной области
+            values = values.GetRange(startIndex, values.Count - startIndex);
+
+            // Находим первые два пика
             var peaks = new List<(int index, double value)>();
-            for (int i = 1; i < activeValues.Count - 1; i++)
+            for (int i = 1; i < values.Count - 1; i++)
             {
-                if (activeValues[i] > activeValues[i - 1] && activeValues[i] > activeValues[i + 1])
-                    peaks.Add((i, activeValues[i]));
+                if (values[i] > values[i - 1] && values[i] > values[i + 1])
+                    peaks.Add((i, values[i]));
             }
 
             double zeta = 0, omega_n = 0, omega_d = 0;
@@ -189,7 +184,7 @@ namespace AvionPlot.Views
         private void SetMode(GraphMode mode)
         {
             currentMode = mode;
-            BuildSeries();
+            BuildSeries(); // построение графиков
         }
 
         private void RestoreGraphMode()
@@ -232,11 +227,16 @@ namespace AvionPlot.Views
         {
             if (data == null || data.Count == 0) return;
 
+            // Сохраняем масштаб и видимость
+            var oldX = plotModel.Axes[0].ActualMinimum;
+            var oldXMax = plotModel.Axes[0].ActualMaximum;
+            var oldY = plotModel.Axes[1].ActualMinimum;
+            var oldYMax = plotModel.Axes[1].ActualMaximum;
+            var visibility = new Dictionary<string, bool>();
+            foreach (var s in seriesList) visibility[s.Title] = s.IsVisible;
+
             plotModel.Series.Clear();
             seriesList.Clear();
-            // Модели сохраняем для Normal, не трогаем при переключении
-            if (currentMode == GraphMode.Normal)
-                modelPerGraph.Clear();
 
             AddSeriesWithModel(d => d.OSWES, "OSWES");
             AddSeriesWithModel(d => d.WES12, "WES12");
@@ -245,6 +245,10 @@ namespace AvionPlot.Views
             AddSeriesWithModel(d => d.WES78, "WES78");
             AddSeriesWithModel(d => d.WES910, "WES910");
             AddSeriesWithModel(d => d.WES1112, "WES1112");
+
+            // Восстанавливаем видимость
+            foreach (var s in seriesList)
+                if (visibility.TryGetValue(s.Title, out var v)) s.IsVisible = v;
 
             plotModel.InvalidatePlot(true);
 
@@ -261,15 +265,11 @@ namespace AvionPlot.Views
                 values.Add(selector(row));
 
             if (currentMode == GraphMode.Derivative)
-            {
                 for (int i = 1; i < values.Count; i++)
                     series.Points.Add(new DataPoint(i - 1, values[i] - values[i - 1]));
-            }
             else if (currentMode == GraphMode.SecondDerivative)
-            {
                 for (int i = 2; i < values.Count; i++)
                     series.Points.Add(new DataPoint(i - 2, values[i] - 2 * values[i - 1] + values[i - 2]));
-            }
             else
             {
                 for (int i = 0; i < values.Count; i++)
@@ -299,10 +299,8 @@ namespace AvionPlot.Views
         private void Menu_GraphVisibilityChanged(object sender, string graphName)
         {
             foreach (var series in seriesList)
-            {
                 if (series.Title == graphName)
                     series.IsVisible = MenuBarControl.IsGraphChecked(graphName);
-            }
 
             plotModel.InvalidatePlot(true);
 
@@ -312,8 +310,7 @@ namespace AvionPlot.Views
 
         private void ResetZoom_Clicked(object sender, RoutedEventArgs e)
         {
-            foreach (var axis in plotModel.Axes)
-                axis.Reset();
+            foreach (var axis in plotModel.Axes) axis.Reset();
             plotModel.InvalidatePlot(false);
         }
 
@@ -340,8 +337,14 @@ namespace AvionPlot.Views
         {
             data = DataLoader.LoadFromXml(path);
             modelPerGraph.Clear();
+
+            var fileInfo = new FileInfo(path);
+            string fileSize = (fileInfo.Length / 1024.0).ToString("F2") + " KB";
+            string created = fileInfo.CreationTime.ToString("dd.MM.yyyy HH:mm:ss");
+            string modified = fileInfo.LastWriteTime.ToString("dd.MM.yyyy HH:mm:ss");
+
             Title = $"AvionTables — {Path.GetFileName(path)}";
-            plotModel.Title = $"Строк: {data?.Count ?? 0}";
+            plotModel.Title = $"Размер: {fileSize} | Создан: {created} | Изменён: {modified} | Строк: {data?.Count ?? 0}";
 
             BuildSeries();
         }
