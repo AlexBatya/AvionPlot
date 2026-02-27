@@ -13,6 +13,9 @@ namespace AvionPlot.Views
         public event RoutedEventHandler ExitClicked;
         public event RoutedEventHandler ResetZoomClicked;
 
+        // Новое событие для мат. модели
+        public event RoutedEventHandler MathModelClicked;
+
         public MenuBar()
         {
             InitializeComponent();
@@ -24,6 +27,8 @@ namespace AvionPlot.Views
             NormalModeItem.Click += Mode_Click;
             DerivativeModeItem.Click += Mode_Click;
             SecondDerivativeModeItem.Click += Mode_Click;
+
+            MathModelMenuItem.Click += (s, e) => MathModelClicked?.Invoke(s, e);
         }
 
         private void Mode_Click(object sender, RoutedEventArgs e)

@@ -10,12 +10,9 @@
             <MenuItem Header="Открыть"
                       x:Name="OpenMenuItem"
                       InputGestureText="Ctrl+O"/>
-
             <MenuItem Header="Сохранить"
                       InputGestureText="Ctrl+S"/>
-
             <Separator/>
-
             <MenuItem Header="Выход"
                       x:Name="ExitMenuItem"
                       InputGestureText="Alt+F4"/>
@@ -28,18 +25,15 @@
         <!-- Функция -->
         <MenuItem Header="Функция"
                   x:Name="FunctionMenu">
-
             <MenuItem Header="Обычный"
                       IsCheckable="True"
                       IsChecked="True"
                       x:Name="NormalModeItem"
                       InputGestureText="Ctrl+1"/>
-
             <MenuItem Header="Производная"
                       IsCheckable="True"
                       x:Name="DerivativeModeItem"
                       InputGestureText="Ctrl+2"/>
-
             <MenuItem Header="Вторая производная"
                       IsCheckable="True"
                       x:Name="SecondDerivativeModeItem"
@@ -51,6 +45,13 @@
             <MenuItem Header="Сбросить масштаб"
                       x:Name="ResetZoomMenuItem"
                       InputGestureText="Ctrl+R"/>
+        </MenuItem>
+
+        <!-- Новая вкладка Опции -->
+        <MenuItem Header="Опции">
+            <MenuItem Header="Мат. модель"
+                      x:Name="MathModelMenuItem"
+                      InputGestureText="Ctrl+E"/>
         </MenuItem>
 
     </Menu>

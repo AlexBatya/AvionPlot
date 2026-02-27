@@ -1,13 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
+    <OutputType>Exe</OutputType>
     <TargetFramework>net9.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <OutPutPath>../build</OutPutPath>
     <UseWPF>true</UseWPF>
-    <ApplicationIcon>E:\work\programs\desktop\AvionPlot\src\Assets\Img\logo.ico</ApplicationIcon>
+    <ApplicationIcon>C:\Users\user\Desktop\work\programs\desktop\AvionPlot\src\Assets\Img\logo.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

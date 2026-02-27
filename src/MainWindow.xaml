@@ -11,44 +11,59 @@
 
     <DockPanel>
 
+        <!-- Меню -->
         <local:MenuBar x:Name="MenuBarControl"
                        DockPanel.Dock="Top"/>
 
-        <!-- Область графика -->
-        <Grid>
+        <!-- Основная область -->
+        <Grid x:Name="MainGrid">
 
+            <!-- Область графика -->
             <oxy:PlotView x:Name="PlotView"/>
+
+            <!-- Панель справа, изначально скрыта -->
+            <Border x:Name="SidePanel"
+                    Background="#F0F0F0"
+                    BorderBrush="#CCCCCC"
+                    BorderThickness="1"
+                    Width="300"
+                    HorizontalAlignment="Right"
+                    Visibility="Collapsed">
+                <StackPanel Margin="10">
+                    <TextBlock Text="Здесь будет мат. модель" 
+                               FontWeight="Bold" 
+                               Margin="0,0,0,10"/>
+                    <!-- Можно добавлять любые элементы -->
+                </StackPanel>
+            </Border>
 
             <!-- Кнопка сброса масштаба -->
             <Button Width="40"
-                  Height="40"
-                  FontSize="20"
-                  HorizontalAlignment="Right"
-                  VerticalAlignment="Bottom"
-                  Margin="40, 70"
-                  Click="ResetZoom_Clicked"
-                  ToolTip="Сбросить масштаб"
-                  Opacity="0.85"
-                  Background="White"
-                  BorderBrush="#CCCCCC"
-                  Cursor="Hand">
-
-              <Button.Template>
-                  <ControlTemplate TargetType="Button">
-                      <Border Background="{TemplateBinding Background}"
-                              BorderBrush="{TemplateBinding BorderBrush}"
-                              BorderThickness="1"
-                              CornerRadius="20">
-                          <ContentPresenter HorizontalAlignment="Center"
-                                            VerticalAlignment="Center"/>
-                      </Border>
-                  </ControlTemplate>
-              </Button.Template>
-
-              ⟳
+                    Height="40"
+                    FontSize="20"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom"
+                    Margin="40,70"
+                    Click="ResetZoom_Clicked"
+                    ToolTip="Сбросить масштаб"
+                    Opacity="0.85"
+                    Background="White"
+                    BorderBrush="#CCCCCC"
+                    Cursor="Hand">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="20">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+                ⟳
             </Button>
 
         </Grid>
-
     </DockPanel>
 </Window>

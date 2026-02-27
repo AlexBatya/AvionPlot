@@ -33,6 +33,9 @@ namespace AvionPlot.Views
             "WES78", "WES910", "WES1112"
         };
 
+        // Панель справа
+        private bool isSidePanelVisible = false;
+
         public MainWindow(string[] args = null)
         {
             InitializeComponent();
@@ -42,14 +45,10 @@ namespace AvionPlot.Views
             LoadConfig();
             InitializeHotkeys();
 
-            plotModel = new PlotModel
-            {
-                Title = "Графики осей проезда"
-            };
-
+            plotModel = new PlotModel { Title = "Графики осей проезда" };
             seriesList = new List<LineSeries>();
 
-            // 🔥 СЕТКА ВОССТАНОВЛЕНА
+            // Настройка осей
             plotModel.Axes.Add(new LinearAxis
             {
                 Position = AxisPosition.Bottom,
@@ -70,6 +69,7 @@ namespace AvionPlot.Views
 
             PlotView.Model = plotModel;
 
+            // Настройка меню
             MenuBarControl.BuildGraphList(graphNames);
             MenuBarControl.ApplySavedVisibility(config.GraphVisibility);
 
@@ -79,6 +79,15 @@ namespace AvionPlot.Views
             MenuBarControl.ExitClicked += (s, e) => Close();
             MenuBarControl.ResetZoomClicked += ResetZoom_Clicked;
 
+            // Подписка на пункт меню "Мат. модель"
+            MenuBarControl.MathModelClicked += (s, e) => ToggleSidePanel();
+
+            // Горячая клавиша Ctrl+E
+            InputBindings.Add(new KeyBinding(
+                new RelayCommand(_ => ToggleSidePanel()),
+                new KeyGesture(Key.E, ModifierKeys.Control)
+            ));
+
             RestoreGraphMode();
 
             if (args != null && args.Length > 0 && File.Exists(args[0]))
@@ -86,6 +95,14 @@ namespace AvionPlot.Views
 
             AllowDrop = true;
             Drop += MainWindow_Drop;
+        }
+
+        private void ToggleSidePanel()
+        {
+            if (SidePanel == null) return;
+
+            SidePanel.Visibility = isSidePanelVisible ? Visibility.Collapsed : Visibility.Visible;
+            isSidePanelVisible = !isSidePanelVisible;
         }
 
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
@@ -120,11 +137,7 @@ namespace AvionPlot.Views
                 if (!Directory.Exists(ConfigDirectory))
                     Directory.CreateDirectory(ConfigDirectory);
 
-                string json = JsonSerializer.Serialize(config, new JsonSerializerOptions
-                {
-                    WriteIndented = true
-                });
-
+                string json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(ConfigFilePath, json);
             }
             catch { }
@@ -167,12 +180,7 @@ namespace AvionPlot.Views
                 new KeyGesture(Key.F4, ModifierKeys.Alt)));
         }
 
-        private enum GraphMode
-        {
-            Normal,
-            Derivative,
-            SecondDerivative
-        }
+        private enum GraphMode { Normal, Derivative, SecondDerivative }
 
         private void SetMode(GraphMode mode)
         {
@@ -195,7 +203,6 @@ namespace AvionPlot.Views
                 "Вторая производная" => GraphMode.SecondDerivative,
                 _ => GraphMode.Normal
             };
-
             BuildSeries();
         }
 
@@ -209,14 +216,12 @@ namespace AvionPlot.Views
                     break;
                 }
             }
-
             plotModel.InvalidatePlot(true);
         }
 
         private void BuildSeries()
         {
-            if (data == null || data.Count == 0)
-                return;
+            if (data == null || data.Count == 0) return;
 
             plotModel.Series.Clear();
             seriesList.Clear();
@@ -245,21 +250,14 @@ namespace AvionPlot.Views
                 values.Add(selector(row));
 
             if (currentMode == GraphMode.Derivative)
-            {
                 for (int i = 1; i < values.Count; i++)
                     series.Points.Add(new DataPoint(i - 1, values[i] - values[i - 1]));
-            }
             else if (currentMode == GraphMode.SecondDerivative)
-            {
                 for (int i = 2; i < values.Count; i++)
-                    series.Points.Add(new DataPoint(i - 2,
-                        values[i] - 2 * values[i - 1] + values[i - 2]));
-            }
+                    series.Points.Add(new DataPoint(i - 2, values[i] - 2 * values[i - 1] + values[i - 2]));
             else
-            {
                 for (int i = 0; i < values.Count; i++)
                     series.Points.Add(new DataPoint(i, values[i]));
-            }
 
             series.IsVisible = MenuBarControl.IsGraphChecked(title);
 
@@ -276,8 +274,7 @@ namespace AvionPlot.Views
 
         private void MainWindow_Drop(object sender, DragEventArgs e)
         {
-            if (!e.Data.GetDataPresent(DataFormats.FileDrop))
-                return;
+            if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
 
             var files = (string[])e.Data.GetData(DataFormats.FileDrop);
             if (files.Length > 0)
@@ -287,7 +284,17 @@ namespace AvionPlot.Views
         private void LoadFile(string path)
         {
             data = DataLoader.LoadFromXml(path);
+
+            var fileInfo = new FileInfo(path);
+            string fileSize = (fileInfo.Length / 1024.0).ToString("F2") + " KB";
+            string created = fileInfo.CreationTime.ToString("dd.MM.yyyy HH:mm:ss");
+            string modified = fileInfo.LastWriteTime.ToString("dd.MM.yyyy HH:mm:ss");
+            int rowCount = data?.Count ?? 0;
+
             Title = $"AvionTables — {Path.GetFileName(path)}";
+            plotModel.Title =
+                $"Размер: {fileSize} | Создан: {created} | Изменён: {modified} | Строк: {rowCount}";
+
             BuildSeries();
         }
     }
