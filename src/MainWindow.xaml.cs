@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Input;
@@ -21,20 +22,21 @@ namespace AvionPlot.Views
 
         private static readonly string ConfigDirectory =
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AvionPlot");
-
         private static readonly string ConfigFilePath =
             Path.Combine(ConfigDirectory, "config.json");
 
         private AppConfig config = new();
+        private bool isSidePanelVisible = false;
+
+        // Словарь для хранения анализа каждого Normal-графика
+        private Dictionary<string, (double zeta, double omega_n, double omega_d)> modelPerGraph
+            = new Dictionary<string, (double zeta, double omega_n, double omega_d)>();
 
         private readonly string[] graphNames =
         {
             "OSWES", "WES12", "WES34", "WES56",
             "WES78", "WES910", "WES1112"
         };
-
-        // Панель справа
-        private bool isSidePanelVisible = false;
 
         public MainWindow(string[] args = null)
         {
@@ -46,9 +48,8 @@ namespace AvionPlot.Views
             InitializeHotkeys();
 
             plotModel = new PlotModel { Title = "Графики осей проезда" };
-            seriesList = new List<LineSeries>();
 
-            // Настройка осей
+            // Сетка и оси
             plotModel.Axes.Add(new LinearAxis
             {
                 Position = AxisPosition.Bottom,
@@ -57,7 +58,6 @@ namespace AvionPlot.Views
                 MinorGridlineStyle = LineStyle.Dot,
                 MinorGridlineThickness = 0.5
             });
-
             plotModel.Axes.Add(new LinearAxis
             {
                 Position = AxisPosition.Left,
@@ -68,8 +68,8 @@ namespace AvionPlot.Views
             });
 
             PlotView.Model = plotModel;
+            seriesList = new List<LineSeries>();
 
-            // Настройка меню
             MenuBarControl.BuildGraphList(graphNames);
             MenuBarControl.ApplySavedVisibility(config.GraphVisibility);
 
@@ -78,11 +78,8 @@ namespace AvionPlot.Views
             MenuBarControl.OpenFileClicked += MenuOpenFile_Click;
             MenuBarControl.ExitClicked += (s, e) => Close();
             MenuBarControl.ResetZoomClicked += ResetZoom_Clicked;
-
-            // Подписка на пункт меню "Мат. модель"
             MenuBarControl.MathModelClicked += (s, e) => ToggleSidePanel();
 
-            // Горячая клавиша Ctrl+E
             InputBindings.Add(new KeyBinding(
                 new RelayCommand(_ => ToggleSidePanel()),
                 new KeyGesture(Key.E, ModifierKeys.Control)
@@ -97,50 +94,102 @@ namespace AvionPlot.Views
             Drop += MainWindow_Drop;
         }
 
+        // ===============================
+        // ПАНЕЛЬ МАТЕМАТИЧЕСКОЙ МОДЕЛИ
+        // ===============================
+
         private void ToggleSidePanel()
         {
             if (SidePanel == null) return;
 
-            SidePanel.Visibility = isSidePanelVisible ? Visibility.Collapsed : Visibility.Visible;
             isSidePanelVisible = !isSidePanelVisible;
+            SidePanel.Visibility = isSidePanelVisible ? Visibility.Visible : Visibility.Collapsed;
+
+            if (isSidePanelVisible)
+                UpdateMathModelPanel();
         }
 
-        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        private void UpdateMathModelPanel()
         {
-            base.OnClosing(e);
-            SaveConfig();
-        }
+            if (platformModelTextBlock == null) return;
 
-        private void LoadConfig()
-        {
-            try
+            var sb = new StringBuilder();
+            sb.AppendLine("=== ОБЩАЯ МАТЕМАТИЧЕСКАЯ МОДЕЛЬ ===\n");
+
+            foreach (var series in seriesList)
             {
-                if (File.Exists(ConfigFilePath))
+                // Только видимые Normal-графики
+                if (!series.IsVisible || currentMode != GraphMode.Normal) continue;
+
+                if (!modelPerGraph.TryGetValue(series.Title, out var model)) continue;
+
+                sb.AppendLine($"График: {series.Title}");
+                sb.AppendLine($"  Коэффициент демпфирования ζ = {model.zeta:F4}");
+                sb.AppendLine($"  Собственная частота ω_n = {model.omega_n:F4}");
+                sb.AppendLine($"  Затухающая частота ω_d = {model.omega_d:F4}");
+                sb.AppendLine($"  Уравнение: x'' + {2 * model.zeta * model.omega_n:F4} x' + {model.omega_n * model.omega_n:F4} x = 0");
+                sb.AppendLine($"  Решение: x(t) = A * e^(-ζ*ω_n*t) * sin(ω_d * t + φ)");
+                sb.AppendLine();
+            }
+
+            platformModelTextBlock.Text = sb.Length > 0 ? sb.ToString() : "Нет видимых Normal-графиков.";
+        }
+
+        private void CalculateModelForGraph(string graphTitle, Func<RowData, int> selector)
+        {
+            if (data == null || data.Count < 3) return;
+
+            var values = new List<double>();
+            foreach (var row in data) values.Add(selector(row));
+
+            // Определяем активную область сигнала
+            int startIndex = 0;
+            double threshold = 1.0; // порог минимального изменения
+            for (int i = 1; i < values.Count; i++)
+            {
+                if (Math.Abs(values[i] - values[0]) > threshold)
                 {
-                    string json = File.ReadAllText(ConfigFilePath);
-                    config = JsonSerializer.Deserialize<AppConfig>(json) ?? new AppConfig();
+                    startIndex = i;
+                    break;
                 }
             }
-            catch
+
+            var activeValues = values.GetRange(startIndex, values.Count - startIndex);
+
+            // Находим первые два пика активной области
+            var peaks = new List<(int index, double value)>();
+            for (int i = 1; i < activeValues.Count - 1; i++)
             {
-                config = new AppConfig();
+                if (activeValues[i] > activeValues[i - 1] && activeValues[i] > activeValues[i + 1])
+                    peaks.Add((i, activeValues[i]));
             }
+
+            double zeta = 0, omega_n = 0, omega_d = 0;
+            if (peaks.Count >= 2)
+            {
+                double A1 = peaks[0].value;
+                double A2 = peaks[1].value;
+                double delta = Math.Log(A1 / A2);
+                zeta = delta / Math.Sqrt(4 * Math.PI * Math.PI + delta * delta);
+
+                double T = peaks[1].index - peaks[0].index;
+                omega_d = 2 * Math.PI / T;
+                omega_n = omega_d / Math.Sqrt(1 - zeta * zeta);
+            }
+
+            modelPerGraph[graphTitle] = (zeta, omega_n, omega_d);
         }
 
-        private void SaveConfig()
+        // ===============================
+        // РЕЖИМЫ
+        // ===============================
+
+        private enum GraphMode { Normal, Derivative, SecondDerivative }
+
+        private void SetMode(GraphMode mode)
         {
-            try
-            {
-                config.GraphVisibility = MenuBarControl.GetGraphStates();
-                config.GraphMode = currentMode.ToString();
-
-                if (!Directory.Exists(ConfigDirectory))
-                    Directory.CreateDirectory(ConfigDirectory);
-
-                string json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(ConfigFilePath, json);
-            }
-            catch { }
+            currentMode = mode;
+            BuildSeries();
         }
 
         private void RestoreGraphMode()
@@ -158,40 +207,80 @@ namespace AvionPlot.Views
             InputBindings.Add(new KeyBinding(
                 new RelayCommand(_ => MenuOpenFile_Click(null, null)),
                 new KeyGesture(Key.O, ModifierKeys.Control)));
-
             InputBindings.Add(new KeyBinding(
                 new RelayCommand(_ => ResetZoom_Clicked(null, null)),
                 new KeyGesture(Key.R, ModifierKeys.Control)));
-
             InputBindings.Add(new KeyBinding(
                 new RelayCommand(_ => SetMode(GraphMode.Normal)),
                 new KeyGesture(Key.D1, ModifierKeys.Control)));
-
             InputBindings.Add(new KeyBinding(
                 new RelayCommand(_ => SetMode(GraphMode.Derivative)),
                 new KeyGesture(Key.D2, ModifierKeys.Control)));
-
             InputBindings.Add(new KeyBinding(
                 new RelayCommand(_ => SetMode(GraphMode.SecondDerivative)),
                 new KeyGesture(Key.D3, ModifierKeys.Control)));
-
             InputBindings.Add(new KeyBinding(
                 new RelayCommand(_ => Close()),
                 new KeyGesture(Key.F4, ModifierKeys.Alt)));
         }
 
-        private enum GraphMode { Normal, Derivative, SecondDerivative }
+        // ===============================
+        // ГРАФИКИ
+        // ===============================
 
-        private void SetMode(GraphMode mode)
+        private void BuildSeries()
         {
-            currentMode = mode;
-            BuildSeries();
+            if (data == null || data.Count == 0) return;
+
+            plotModel.Series.Clear();
+            seriesList.Clear();
+            // Модели сохраняем для Normal, не трогаем при переключении
+            if (currentMode == GraphMode.Normal)
+                modelPerGraph.Clear();
+
+            AddSeriesWithModel(d => d.OSWES, "OSWES");
+            AddSeriesWithModel(d => d.WES12, "WES12");
+            AddSeriesWithModel(d => d.WES34, "WES34");
+            AddSeriesWithModel(d => d.WES56, "WES56");
+            AddSeriesWithModel(d => d.WES78, "WES78");
+            AddSeriesWithModel(d => d.WES910, "WES910");
+            AddSeriesWithModel(d => d.WES1112, "WES1112");
+
+            plotModel.InvalidatePlot(true);
+
+            if (isSidePanelVisible)
+                UpdateMathModelPanel();
         }
 
-        private void ResetZoom_Clicked(object sender, RoutedEventArgs e)
+        private void AddSeriesWithModel(Func<RowData, int> selector, string title)
         {
-            plotModel.ResetAllAxes();
-            plotModel.InvalidatePlot(false);
+            var series = new LineSeries { Title = title };
+
+            var values = new List<double>();
+            foreach (var row in data)
+                values.Add(selector(row));
+
+            if (currentMode == GraphMode.Derivative)
+            {
+                for (int i = 1; i < values.Count; i++)
+                    series.Points.Add(new DataPoint(i - 1, values[i] - values[i - 1]));
+            }
+            else if (currentMode == GraphMode.SecondDerivative)
+            {
+                for (int i = 2; i < values.Count; i++)
+                    series.Points.Add(new DataPoint(i - 2, values[i] - 2 * values[i - 1] + values[i - 2]));
+            }
+            else
+            {
+                for (int i = 0; i < values.Count; i++)
+                    series.Points.Add(new DataPoint(i, values[i]));
+                CalculateModelForGraph(title, selector);
+            }
+
+            series.IsVisible = MenuBarControl.IsGraphChecked(title);
+
+            seriesList.Add(series);
+            plotModel.Series.Add(series);
         }
 
         private void Menu_GraphModeChanged(object sender, string mode)
@@ -203,7 +292,8 @@ namespace AvionPlot.Views
                 "Вторая производная" => GraphMode.SecondDerivative,
                 _ => GraphMode.Normal
             };
-            BuildSeries();
+
+            SetMode(currentMode);
         }
 
         private void Menu_GraphVisibilityChanged(object sender, string graphName)
@@ -211,59 +301,25 @@ namespace AvionPlot.Views
             foreach (var series in seriesList)
             {
                 if (series.Title == graphName)
-                {
                     series.IsVisible = MenuBarControl.IsGraphChecked(graphName);
-                    break;
-                }
             }
-            plotModel.InvalidatePlot(true);
-        }
-
-        private void BuildSeries()
-        {
-            if (data == null || data.Count == 0) return;
-
-            plotModel.Series.Clear();
-            seriesList.Clear();
-
-            AddSeries(d => d.OSWES, "OSWES");
-            AddSeries(d => d.WES12, "WES12");
-            AddSeries(d => d.WES34, "WES34");
-            AddSeries(d => d.WES56, "WES56");
-            AddSeries(d => d.WES78, "WES78");
-            AddSeries(d => d.WES910, "WES910");
-            AddSeries(d => d.WES1112, "WES1112");
 
             plotModel.InvalidatePlot(true);
+
+            if (isSidePanelVisible)
+                UpdateMathModelPanel();
         }
 
-        private void AddSeries(Func<RowData, int> selector, string title)
+        private void ResetZoom_Clicked(object sender, RoutedEventArgs e)
         {
-            var series = new LineSeries
-            {
-                Title = title,
-                TrackerFormatString = "{0}\nX: {2}\nY: {4}"
-            };
-
-            var values = new List<double>();
-            foreach (var row in data)
-                values.Add(selector(row));
-
-            if (currentMode == GraphMode.Derivative)
-                for (int i = 1; i < values.Count; i++)
-                    series.Points.Add(new DataPoint(i - 1, values[i] - values[i - 1]));
-            else if (currentMode == GraphMode.SecondDerivative)
-                for (int i = 2; i < values.Count; i++)
-                    series.Points.Add(new DataPoint(i - 2, values[i] - 2 * values[i - 1] + values[i - 2]));
-            else
-                for (int i = 0; i < values.Count; i++)
-                    series.Points.Add(new DataPoint(i, values[i]));
-
-            series.IsVisible = MenuBarControl.IsGraphChecked(title);
-
-            seriesList.Add(series);
-            plotModel.Series.Add(series);
+            foreach (var axis in plotModel.Axes)
+                axis.Reset();
+            plotModel.InvalidatePlot(false);
         }
+
+        // ===============================
+        // ФАЙЛЫ
+        // ===============================
 
         private void MenuOpenFile_Click(object sender, RoutedEventArgs e)
         {
@@ -275,7 +331,6 @@ namespace AvionPlot.Views
         private void MainWindow_Drop(object sender, DragEventArgs e)
         {
             if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
-
             var files = (string[])e.Data.GetData(DataFormats.FileDrop);
             if (files.Length > 0)
                 LoadFile(files[0]);
@@ -284,18 +339,50 @@ namespace AvionPlot.Views
         private void LoadFile(string path)
         {
             data = DataLoader.LoadFromXml(path);
-
-            var fileInfo = new FileInfo(path);
-            string fileSize = (fileInfo.Length / 1024.0).ToString("F2") + " KB";
-            string created = fileInfo.CreationTime.ToString("dd.MM.yyyy HH:mm:ss");
-            string modified = fileInfo.LastWriteTime.ToString("dd.MM.yyyy HH:mm:ss");
-            int rowCount = data?.Count ?? 0;
-
+            modelPerGraph.Clear();
             Title = $"AvionTables — {Path.GetFileName(path)}";
-            plotModel.Title =
-                $"Размер: {fileSize} | Создан: {created} | Изменён: {modified} | Строк: {rowCount}";
+            plotModel.Title = $"Строк: {data?.Count ?? 0}";
 
             BuildSeries();
+        }
+
+        // ===============================
+        // КОНФИГ
+        // ===============================
+
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            base.OnClosing(e);
+            SaveConfig();
+        }
+
+        private void LoadConfig()
+        {
+            try
+            {
+                if (File.Exists(ConfigFilePath))
+                {
+                    string json = File.ReadAllText(ConfigFilePath);
+                    config = JsonSerializer.Deserialize<AppConfig>(json) ?? new AppConfig();
+                }
+            }
+            catch { config = new AppConfig(); }
+        }
+
+        private void SaveConfig()
+        {
+            try
+            {
+                config.GraphVisibility = MenuBarControl.GetGraphStates();
+                config.GraphMode = currentMode.ToString();
+
+                if (!Directory.Exists(ConfigDirectory))
+                    Directory.CreateDirectory(ConfigDirectory);
+
+                string json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(ConfigFilePath, json);
+            }
+            catch { }
         }
     }
 

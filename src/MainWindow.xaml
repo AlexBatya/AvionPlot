@@ -21,19 +21,34 @@
             <!-- Область графика -->
             <oxy:PlotView x:Name="PlotView"/>
 
-            <!-- Панель справа, изначально скрыта -->
+            <!-- Панель справа -->
             <Border x:Name="SidePanel"
                     Background="#F0F0F0"
                     BorderBrush="#CCCCCC"
                     BorderThickness="1"
-                    Width="300"
+                    Width="320"
                     HorizontalAlignment="Right"
                     Visibility="Collapsed">
+
                 <StackPanel Margin="10">
-                    <TextBlock Text="Здесь будет мат. модель" 
-                               FontWeight="Bold" 
+
+                    <!-- Заголовок -->
+                    <TextBlock Text="Математическая модель"
+                               FontWeight="Bold"
+                               FontSize="14"
                                Margin="0,0,0,10"/>
-                    <!-- Можно добавлять любые элементы -->
+
+                    <!-- Прокрутка -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  Height="550">
+
+                        <!-- ВАЖНО: вот этот TextBlock видит C# -->
+                        <TextBlock x:Name="platformModelTextBlock"
+                                   TextWrapping="Wrap"
+                                   FontFamily="Consolas"
+                                   FontSize="12"/>
+                    </ScrollViewer>
+
                 </StackPanel>
             </Border>
 
