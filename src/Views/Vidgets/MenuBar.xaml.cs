@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -63,11 +64,49 @@ namespace AvionPlot.Views
         public bool IsGraphChecked(string name)
         {
             foreach (MenuItem item in GraphsMenuItem.Items)
-            {
                 if (item.Header.ToString() == name)
                     return item.IsChecked;
-            }
+
             return true;
+        }
+
+        public Dictionary<string, bool> GetGraphStates()
+        {
+            var dict = new Dictionary<string, bool>();
+
+            foreach (MenuItem item in GraphsMenuItem.Items)
+                dict[item.Header.ToString()] = item.IsChecked;
+
+            return dict;
+        }
+
+        public void ApplySavedVisibility(Dictionary<string, bool> saved)
+        {
+            if (saved == null)
+                return;
+
+            foreach (MenuItem item in GraphsMenuItem.Items)
+                if (saved.TryGetValue(item.Header.ToString(), out bool value))
+                    item.IsChecked = value;
+        }
+
+        public void SetModeChecked(string mode)
+        {
+            foreach (MenuItem item in FunctionMenu.Items)
+                item.IsChecked = false;
+
+            switch (mode)
+            {
+                case "Normal":
+                    NormalModeItem.IsChecked = true;
+                    break;
+                case "Derivative":
+                    DerivativeModeItem.IsChecked = true;
+                    break;
+                case "SecondDerivative":
+                    SecondDerivativeModeItem.IsChecked = true;
+                    break;
+            }
         }
     }
 }

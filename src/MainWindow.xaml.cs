@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Input;
 using Microsoft.Win32;
@@ -18,18 +19,27 @@ namespace AvionPlot.Views
         private List<RowData> data = new();
         private GraphMode currentMode = GraphMode.Normal;
 
+        private static readonly string ConfigDirectory =
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AvionPlot");
+
+        private static readonly string ConfigFilePath =
+            Path.Combine(ConfigDirectory, "config.json");
+
+        private AppConfig config = new();
+
         private readonly string[] graphNames =
         {
             "OSWES", "WES12", "WES34", "WES56",
             "WES78", "WES910", "WES1112"
         };
 
-        public MainWindow()
+        public MainWindow(string[] args = null)
         {
             InitializeComponent();
 
             Title = "AvionTables";
 
+            LoadConfig();
             InitializeHotkeys();
 
             plotModel = new PlotModel
@@ -39,7 +49,7 @@ namespace AvionPlot.Views
 
             seriesList = new List<LineSeries>();
 
-            // Сетка
+            // 🔥 СЕТКА ВОССТАНОВЛЕНА
             plotModel.Axes.Add(new LinearAxis
             {
                 Position = AxisPosition.Bottom,
@@ -61,11 +71,73 @@ namespace AvionPlot.Views
             PlotView.Model = plotModel;
 
             MenuBarControl.BuildGraphList(graphNames);
+            MenuBarControl.ApplySavedVisibility(config.GraphVisibility);
+
             MenuBarControl.GraphVisibilityChanged += Menu_GraphVisibilityChanged;
             MenuBarControl.GraphModeChanged += Menu_GraphModeChanged;
             MenuBarControl.OpenFileClicked += MenuOpenFile_Click;
             MenuBarControl.ExitClicked += (s, e) => Close();
             MenuBarControl.ResetZoomClicked += ResetZoom_Clicked;
+
+            RestoreGraphMode();
+
+            if (args != null && args.Length > 0 && File.Exists(args[0]))
+                LoadFile(args[0]);
+
+            AllowDrop = true;
+            Drop += MainWindow_Drop;
+        }
+
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            base.OnClosing(e);
+            SaveConfig();
+        }
+
+        private void LoadConfig()
+        {
+            try
+            {
+                if (File.Exists(ConfigFilePath))
+                {
+                    string json = File.ReadAllText(ConfigFilePath);
+                    config = JsonSerializer.Deserialize<AppConfig>(json) ?? new AppConfig();
+                }
+            }
+            catch
+            {
+                config = new AppConfig();
+            }
+        }
+
+        private void SaveConfig()
+        {
+            try
+            {
+                config.GraphVisibility = MenuBarControl.GetGraphStates();
+                config.GraphMode = currentMode.ToString();
+
+                if (!Directory.Exists(ConfigDirectory))
+                    Directory.CreateDirectory(ConfigDirectory);
+
+                string json = JsonSerializer.Serialize(config, new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
+
+                File.WriteAllText(ConfigFilePath, json);
+            }
+            catch { }
+        }
+
+        private void RestoreGraphMode()
+        {
+            if (Enum.TryParse(config.GraphMode, out GraphMode savedMode))
+            {
+                currentMode = savedMode;
+                SetMode(currentMode);
+                MenuBarControl.SetModeChecked(currentMode.ToString());
+            }
         }
 
         private void InitializeHotkeys()
@@ -174,21 +246,20 @@ namespace AvionPlot.Views
 
             if (currentMode == GraphMode.Derivative)
             {
-                var deriv = new List<double>();
                 for (int i = 1; i < values.Count; i++)
-                    deriv.Add(values[i] - values[i - 1]);
-                values = deriv;
+                    series.Points.Add(new DataPoint(i - 1, values[i] - values[i - 1]));
             }
             else if (currentMode == GraphMode.SecondDerivative)
             {
-                var acc = new List<double>();
                 for (int i = 2; i < values.Count; i++)
-                    acc.Add(values[i] - 2 * values[i - 1] + values[i - 2]);
-                values = acc;
+                    series.Points.Add(new DataPoint(i - 2,
+                        values[i] - 2 * values[i - 1] + values[i - 2]));
             }
-
-            for (int i = 0; i < values.Count; i++)
-                series.Points.Add(new DataPoint(i, values[i]));
+            else
+            {
+                for (int i = 0; i < values.Count; i++)
+                    series.Points.Add(new DataPoint(i, values[i]));
+            }
 
             series.IsVisible = MenuBarControl.IsGraphChecked(title);
 
@@ -198,11 +269,7 @@ namespace AvionPlot.Views
 
         private void MenuOpenFile_Click(object sender, RoutedEventArgs e)
         {
-            var dlg = new OpenFileDialog
-            {
-                Filter = "XML Files (*.xml)|*.xml"
-            };
-
+            var dlg = new OpenFileDialog { Filter = "XML Files (*.xml)|*.xml" };
             if (dlg.ShowDialog() == true)
                 LoadFile(dlg.FileName);
         }
@@ -213,7 +280,6 @@ namespace AvionPlot.Views
                 return;
 
             var files = (string[])e.Data.GetData(DataFormats.FileDrop);
-
             if (files.Length > 0)
                 LoadFile(files[0]);
         }
@@ -221,11 +287,7 @@ namespace AvionPlot.Views
         private void LoadFile(string path)
         {
             data = DataLoader.LoadFromXml(path);
-
-            // Обновляем Title окна
-            string fileName = Path.GetFileName(path);
-            Title = $"AvionTables — {fileName}";
-
+            Title = $"AvionTables — {Path.GetFileName(path)}";
             BuildSeries();
         }
     }
@@ -233,12 +295,7 @@ namespace AvionPlot.Views
     public class RelayCommand : ICommand
     {
         private readonly Action<object> execute;
-
-        public RelayCommand(Action<object> execute)
-        {
-            this.execute = execute;
-        }
-
+        public RelayCommand(Action<object> execute) => this.execute = execute;
         public event EventHandler CanExecuteChanged;
         public bool CanExecute(object parameter) => true;
         public void Execute(object parameter) => execute(parameter);
