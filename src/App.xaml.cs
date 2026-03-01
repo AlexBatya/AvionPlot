@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.Text;
+using System.Windows;
 
 namespace AvionPlot
 {
@@ -6,6 +7,9 @@ namespace AvionPlot
     {
         protected override void OnStartup(StartupEventArgs e)
         {
+            // 🔥 ВАЖНО: регистрация старых кодировок (1252 и др.)
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
             base.OnStartup(e);
 
             // Передаём аргументы запуска (путь к XML)

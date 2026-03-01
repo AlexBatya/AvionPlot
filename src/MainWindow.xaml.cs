@@ -10,6 +10,7 @@ using AvionPlot.Models;
 using OxyPlot;
 using OxyPlot.Series;
 using OxyPlot.Axes;
+using OxyPlot.Wpf;
 
 namespace AvionPlot.Views
 {
@@ -28,9 +29,9 @@ namespace AvionPlot.Views
         private AppConfig config = new();
         private bool isSidePanelVisible = false;
 
-        // Словарь для хранения анализа каждого Normal-графика
+        // Хранение параметров мат. модели
         private Dictionary<string, (double zeta, double omega_n, double omega_d)> modelPerGraph
-            = new Dictionary<string, (double zeta, double omega_n, double omega_d)>();
+            = new();
 
         private readonly string[] graphNames =
         {
@@ -49,7 +50,6 @@ namespace AvionPlot.Views
 
             plotModel = new PlotModel { Title = "Графики осей проезда" };
 
-            // Сетка и оси
             plotModel.Axes.Add(new LinearAxis
             {
                 Position = AxisPosition.Bottom,
@@ -58,6 +58,7 @@ namespace AvionPlot.Views
                 MinorGridlineStyle = LineStyle.Dot,
                 MinorGridlineThickness = 0.5
             });
+
             plotModel.Axes.Add(new LinearAxis
             {
                 Position = AxisPosition.Left,
@@ -68,7 +69,7 @@ namespace AvionPlot.Views
             });
 
             PlotView.Model = plotModel;
-            seriesList = new List<LineSeries>();
+            seriesList = new();
 
             MenuBarControl.BuildGraphList(graphNames);
             MenuBarControl.ApplySavedVisibility(config.GraphVisibility);
@@ -80,10 +81,9 @@ namespace AvionPlot.Views
             MenuBarControl.ResetZoomClicked += ResetZoom_Clicked;
             MenuBarControl.MathModelClicked += (s, e) => ToggleSidePanel();
 
-            InputBindings.Add(new KeyBinding(
-                new RelayCommand(_ => ToggleSidePanel()),
-                new KeyGesture(Key.E, ModifierKeys.Control)
-            ));
+            // Экспорт
+            MenuBarControl.PrintPdfClicked += PrintPdf_Clicked;
+            MenuBarControl.PrintPngClicked += PrintPng_Clicked;
 
             RestoreGraphMode();
 
@@ -95,7 +95,62 @@ namespace AvionPlot.Views
         }
 
         // ===============================
-        // ПАНЕЛЬ МАТЕМАТИЧЕСКОЙ МОДЕЛИ
+        // ЭКСПОРТ (печатает текущий зум!)
+        // ===============================
+
+        private void PrintPdf_Clicked(object sender, RoutedEventArgs e)
+        {
+            var dlg = new SaveFileDialog
+            {
+                Filter = "PDF File (*.pdf)|*.pdf",
+                FileName = "Graph.pdf"
+            };
+
+            if (dlg.ShowDialog() != true)
+                return;
+
+            try
+            {
+                using var stream = File.Create(dlg.FileName);
+
+                var exporter = new OxyPlot.Pdf.PdfExporter
+                {
+                    Width = 1200,
+                    Height = 800
+                };
+
+                exporter.Export(plotModel, stream);
+                MessageBox.Show("PDF сохранён.", "Экспорт");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Ошибка PDF");
+            }
+        }
+
+        private void PrintPng_Clicked(object sender, RoutedEventArgs e)
+        {
+            var dlg = new SaveFileDialog
+            {
+                Filter = "PNG File (*.png)|*.png",
+                FileName = "Graph.png"
+            };
+
+            if (dlg.ShowDialog() != true)
+                return;
+
+            var exporter = new PngExporter
+            {
+                Width = 1600,
+                Height = 1000
+            };
+
+            exporter.ExportToFile(plotModel, dlg.FileName);
+            MessageBox.Show("PNG сохранён.", "Экспорт");
+        }
+
+        // ===============================
+        // ПАНЕЛЬ МАТ. МОДЕЛИ
         // ===============================
 
         private void ToggleSidePanel()
@@ -118,21 +173,23 @@ namespace AvionPlot.Views
 
             foreach (var series in seriesList)
             {
-                // Только видимые Normal-графики
-                if (!series.IsVisible || currentMode != GraphMode.Normal) continue;
+                if (!series.IsVisible || currentMode != GraphMode.Normal)
+                    continue;
 
-                if (!modelPerGraph.TryGetValue(series.Title, out var model)) continue;
+                if (!modelPerGraph.TryGetValue(series.Title, out var model))
+                    continue;
 
                 sb.AppendLine($"График: {series.Title}");
-                sb.AppendLine($"  Коэффициент демпфирования ζ = {model.zeta:F4}");
-                sb.AppendLine($"  Собственная частота ω_n = {model.omega_n:F4}");
-                sb.AppendLine($"  Затухающая частота ω_d = {model.omega_d:F4}");
-                sb.AppendLine($"  Уравнение: x'' + {2 * model.zeta * model.omega_n:F4} x' + {model.omega_n * model.omega_n:F4} x = 0");
-                sb.AppendLine($"  Решение: x(t) = A * e^(-ζ*ω_n*t) * sin(ω_d * t + φ)");
+                sb.AppendLine($"ζ = {model.zeta:F4}");
+                sb.AppendLine($"ω_n = {model.omega_n:F4}");
+                sb.AppendLine($"ω_d = {model.omega_d:F4}");
+                sb.AppendLine($"x'' + {2 * model.zeta * model.omega_n:F4}x' + {model.omega_n * model.omega_n:F4}x = 0");
                 sb.AppendLine();
             }
 
-            platformModelTextBlock.Text = sb.Length > 0 ? sb.ToString() : "Нет видимых Normal-графиков.";
+            platformModelTextBlock.Text = sb.Length > 0
+                ? sb.ToString()
+                : "Нет видимых Normal-графиков.";
         }
 
         private void CalculateModelForGraph(string graphTitle, Func<RowData, int> selector)
@@ -140,37 +197,25 @@ namespace AvionPlot.Views
             if (data == null || data.Count < 3) return;
 
             var values = new List<double>();
-            foreach (var row in data) values.Add(selector(row));
+            foreach (var row in data)
+                values.Add(selector(row));
 
-            // Игнорируем начальные неподвижные точки
-            int startIndex = 0;
-            while (startIndex < values.Count - 1 && values[startIndex] == values[startIndex + 1])
-                startIndex++;
-
-            if (startIndex >= values.Count - 2) return;
-
-            values = values.GetRange(startIndex, values.Count - startIndex);
-
-            // Находим первые два пика
             var peaks = new List<(int index, double value)>();
+
             for (int i = 1; i < values.Count - 1; i++)
-            {
                 if (values[i] > values[i - 1] && values[i] > values[i + 1])
                     peaks.Add((i, values[i]));
-            }
 
-            double zeta = 0, omega_n = 0, omega_d = 0;
-            if (peaks.Count >= 2)
-            {
-                double A1 = peaks[0].value;
-                double A2 = peaks[1].value;
-                double delta = Math.Log(A1 / A2);
-                zeta = delta / Math.Sqrt(4 * Math.PI * Math.PI + delta * delta);
+            if (peaks.Count < 2) return;
 
-                double T = peaks[1].index - peaks[0].index;
-                omega_d = 2 * Math.PI / T;
-                omega_n = omega_d / Math.Sqrt(1 - zeta * zeta);
-            }
+            double A1 = peaks[0].value;
+            double A2 = peaks[1].value;
+
+            double delta = Math.Log(A1 / A2);
+            double zeta = delta / Math.Sqrt(4 * Math.PI * Math.PI + delta * delta);
+            double T = peaks[1].index - peaks[0].index;
+            double omega_d = 2 * Math.PI / T;
+            double omega_n = omega_d / Math.Sqrt(1 - zeta * zeta);
 
             modelPerGraph[graphTitle] = (zeta, omega_n, omega_d);
         }
@@ -184,7 +229,7 @@ namespace AvionPlot.Views
         private void SetMode(GraphMode mode)
         {
             currentMode = mode;
-            BuildSeries(); // построение графиков
+            BuildSeries();
         }
 
         private void RestoreGraphMode()
@@ -199,24 +244,13 @@ namespace AvionPlot.Views
 
         private void InitializeHotkeys()
         {
-            InputBindings.Add(new KeyBinding(
-                new RelayCommand(_ => MenuOpenFile_Click(null, null)),
-                new KeyGesture(Key.O, ModifierKeys.Control)));
-            InputBindings.Add(new KeyBinding(
-                new RelayCommand(_ => ResetZoom_Clicked(null, null)),
-                new KeyGesture(Key.R, ModifierKeys.Control)));
-            InputBindings.Add(new KeyBinding(
-                new RelayCommand(_ => SetMode(GraphMode.Normal)),
-                new KeyGesture(Key.D1, ModifierKeys.Control)));
-            InputBindings.Add(new KeyBinding(
-                new RelayCommand(_ => SetMode(GraphMode.Derivative)),
-                new KeyGesture(Key.D2, ModifierKeys.Control)));
-            InputBindings.Add(new KeyBinding(
-                new RelayCommand(_ => SetMode(GraphMode.SecondDerivative)),
-                new KeyGesture(Key.D3, ModifierKeys.Control)));
-            InputBindings.Add(new KeyBinding(
-                new RelayCommand(_ => Close()),
-                new KeyGesture(Key.F4, ModifierKeys.Alt)));
+            InputBindings.Add(new KeyBinding(new RelayCommand(_ => MenuOpenFile_Click(null, null)), new KeyGesture(Key.O, ModifierKeys.Control)));
+            InputBindings.Add(new KeyBinding(new RelayCommand(_ => ResetZoom_Clicked(null, null)), new KeyGesture(Key.R, ModifierKeys.Control)));
+            InputBindings.Add(new KeyBinding(new RelayCommand(_ => SetMode(GraphMode.Normal)), new KeyGesture(Key.D1, ModifierKeys.Control)));
+            InputBindings.Add(new KeyBinding(new RelayCommand(_ => SetMode(GraphMode.Derivative)), new KeyGesture(Key.D2, ModifierKeys.Control)));
+            InputBindings.Add(new KeyBinding(new RelayCommand(_ => SetMode(GraphMode.SecondDerivative)), new KeyGesture(Key.D3, ModifierKeys.Control)));
+            InputBindings.Add(new KeyBinding(new RelayCommand(_ => ToggleSidePanel()), new KeyGesture(Key.E, ModifierKeys.Control)));
+            InputBindings.Add(new KeyBinding(new RelayCommand(_ => Close()), new KeyGesture(Key.F4, ModifierKeys.Alt)));
         }
 
         // ===============================
@@ -227,16 +261,9 @@ namespace AvionPlot.Views
         {
             if (data == null || data.Count == 0) return;
 
-            // Сохраняем масштаб и видимость
-            var oldX = plotModel.Axes[0].ActualMinimum;
-            var oldXMax = plotModel.Axes[0].ActualMaximum;
-            var oldY = plotModel.Axes[1].ActualMinimum;
-            var oldYMax = plotModel.Axes[1].ActualMaximum;
-            var visibility = new Dictionary<string, bool>();
-            foreach (var s in seriesList) visibility[s.Title] = s.IsVisible;
-
             plotModel.Series.Clear();
             seriesList.Clear();
+            modelPerGraph.Clear();
 
             AddSeriesWithModel(d => d.OSWES, "OSWES");
             AddSeriesWithModel(d => d.WES12, "WES12");
@@ -245,10 +272,6 @@ namespace AvionPlot.Views
             AddSeriesWithModel(d => d.WES78, "WES78");
             AddSeriesWithModel(d => d.WES910, "WES910");
             AddSeriesWithModel(d => d.WES1112, "WES1112");
-
-            // Восстанавливаем видимость
-            foreach (var s in seriesList)
-                if (visibility.TryGetValue(s.Title, out var v)) s.IsVisible = v;
 
             plotModel.InvalidatePlot(true);
 
@@ -259,8 +282,8 @@ namespace AvionPlot.Views
         private void AddSeriesWithModel(Func<RowData, int> selector, string title)
         {
             var series = new LineSeries { Title = title };
-
             var values = new List<double>();
+
             foreach (var row in data)
                 values.Add(selector(row));
 
@@ -274,6 +297,7 @@ namespace AvionPlot.Views
             {
                 for (int i = 0; i < values.Count; i++)
                     series.Points.Add(new DataPoint(i, values[i]));
+
                 CalculateModelForGraph(title, selector);
             }
 
@@ -310,7 +334,9 @@ namespace AvionPlot.Views
 
         private void ResetZoom_Clicked(object sender, RoutedEventArgs e)
         {
-            foreach (var axis in plotModel.Axes) axis.Reset();
+            foreach (var axis in plotModel.Axes)
+                axis.Reset();
+
             plotModel.InvalidatePlot(false);
         }
 
@@ -339,12 +365,13 @@ namespace AvionPlot.Views
             modelPerGraph.Clear();
 
             var fileInfo = new FileInfo(path);
-            string fileSize = (fileInfo.Length / 1024.0).ToString("F2") + " KB";
-            string created = fileInfo.CreationTime.ToString("dd.MM.yyyy HH:mm:ss");
-            string modified = fileInfo.LastWriteTime.ToString("dd.MM.yyyy HH:mm:ss");
+
+            plotModel.Title =
+                $"Размер: {(fileInfo.Length / 1024.0):F2} KB | " +
+                $"Создан: {fileInfo.CreationTime:dd.MM.yyyy HH:mm:ss} | " +
+                $"Строк: {data?.Count ?? 0}";
 
             Title = $"AvionTables — {Path.GetFileName(path)}";
-            plotModel.Title = $"Размер: {fileSize} | Создан: {created} | Изменён: {modified} | Строк: {data?.Count ?? 0}";
 
             BuildSeries();
         }

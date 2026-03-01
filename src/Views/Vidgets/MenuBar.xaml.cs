@@ -9,11 +9,16 @@ namespace AvionPlot.Views
     {
         public event EventHandler<string> GraphVisibilityChanged;
         public event EventHandler<string> GraphModeChanged;
+
         public event RoutedEventHandler OpenFileClicked;
         public event RoutedEventHandler ExitClicked;
         public event RoutedEventHandler ResetZoomClicked;
 
-        // Новое событие для мат. модели
+        // Новые события печати
+        public event RoutedEventHandler PrintPdfClicked;
+        public event RoutedEventHandler PrintPngClicked;
+
+        // Событие мат. модели
         public event RoutedEventHandler MathModelClicked;
 
         public MenuBar()
@@ -23,6 +28,9 @@ namespace AvionPlot.Views
             OpenMenuItem.Click += (s, e) => OpenFileClicked?.Invoke(s, e);
             ExitMenuItem.Click += (s, e) => ExitClicked?.Invoke(s, e);
             ResetZoomMenuItem.Click += (s, e) => ResetZoomClicked?.Invoke(s, e);
+
+            PrintPdfMenuItem.Click += (s, e) => PrintPdfClicked?.Invoke(s, e);
+            PrintPngMenuItem.Click += (s, e) => PrintPngClicked?.Invoke(s, e);
 
             NormalModeItem.Click += Mode_Click;
             DerivativeModeItem.Click += Mode_Click;

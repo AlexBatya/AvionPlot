@@ -12,7 +12,17 @@
                       InputGestureText="Ctrl+O"/>
             <MenuItem Header="Сохранить"
                       InputGestureText="Ctrl+S"/>
+
             <Separator/>
+
+            <!-- НОВОЕ -->
+            <MenuItem Header="Печать PDF"
+                      x:Name="PrintPdfMenuItem"/>
+            <MenuItem Header="Печать PNG"
+                      x:Name="PrintPngMenuItem"/>
+
+            <Separator/>
+
             <MenuItem Header="Выход"
                       x:Name="ExitMenuItem"
                       InputGestureText="Alt+F4"/>
@@ -40,7 +50,7 @@
                       InputGestureText="Ctrl+3"/>
         </MenuItem>
 
-        <!-- Новая вкладка Опции -->
+        <!-- Опции -->
         <MenuItem Header="Опции">
             <MenuItem Header="Мат. модель"
                       x:Name="MathModelMenuItem"
