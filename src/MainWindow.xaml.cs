@@ -29,9 +29,7 @@ namespace AvionPlot.Views
         private AppConfig config = new();
         private bool isSidePanelVisible = false;
 
-        // Хранение параметров мат. модели
-        private Dictionary<string, (double zeta, double omega_n, double omega_d)> modelPerGraph
-            = new();
+        private Dictionary<string, (double zeta, double omega_n, double omega_d)> modelPerGraph = new();
 
         private readonly string[] graphNames =
         {
@@ -81,7 +79,6 @@ namespace AvionPlot.Views
             MenuBarControl.ResetZoomClicked += ResetZoom_Clicked;
             MenuBarControl.MathModelClicked += (s, e) => ToggleSidePanel();
 
-            // Экспорт
             MenuBarControl.PrintPdfClicked += PrintPdf_Clicked;
             MenuBarControl.PrintPngClicked += PrintPng_Clicked;
 
@@ -95,7 +92,7 @@ namespace AvionPlot.Views
         }
 
         // ===============================
-        // ЭКСПОРТ (печатает текущий зум!)
+        // ЭКСПОРТ
         // ===============================
 
         private void PrintPdf_Clicked(object sender, RoutedEventArgs e)
@@ -112,15 +109,7 @@ namespace AvionPlot.Views
             try
             {
                 using var stream = File.Create(dlg.FileName);
-
-                var exporter = new OxyPlot.Pdf.PdfExporter
-                {
-                    Width = 1200,
-                    Height = 800
-                };
-
-                exporter.Export(plotModel, stream);
-                MessageBox.Show("PDF сохранён.", "Экспорт");
+                OxyPlot.Pdf.PdfExporter.Export(plotModel, stream, 1200, 800);
             }
             catch (Exception ex)
             {
@@ -146,7 +135,6 @@ namespace AvionPlot.Views
             };
 
             exporter.ExportToFile(plotModel, dlg.FileName);
-            MessageBox.Show("PNG сохранён.", "Экспорт");
         }
 
         // ===============================

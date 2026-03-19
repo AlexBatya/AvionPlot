@@ -1,3 +1,6 @@
 build
 src/obj
 src/build
+bin
+redist/
+OutPut
