@@ -14,12 +14,13 @@ namespace AvionPlot.Views
         public event RoutedEventHandler ExitClicked;
         public event RoutedEventHandler ResetZoomClicked;
 
-        // Новые события печати
         public event RoutedEventHandler PrintPdfClicked;
         public event RoutedEventHandler PrintPngClicked;
 
-        // Событие мат. модели
         public event RoutedEventHandler MathModelClicked;
+
+        // 🔥 НОВОЕ СОБЫТИЕ
+        public event RoutedEventHandler NotesClicked;
 
         public MenuBar()
         {
@@ -37,6 +38,9 @@ namespace AvionPlot.Views
             SecondDerivativeModeItem.Click += Mode_Click;
 
             MathModelMenuItem.Click += (s, e) => MathModelClicked?.Invoke(s, e);
+
+            // 🔥 ПОДКЛЮЧАЕМ ЗАМЕТКИ
+            NotesMenuItem.Click += (s, e) => NotesClicked?.Invoke(s, e);
         }
 
         private void Mode_Click(object sender, RoutedEventArgs e)

@@ -55,6 +55,8 @@
             <MenuItem Header="Мат. модель"
                       x:Name="MathModelMenuItem"
                       InputGestureText="Ctrl+E"/>
+            <MenuItem Header="Заметки"
+                      x:Name="NotesMenuItem"/>
         </MenuItem>
 
         <!-- Вид -->
