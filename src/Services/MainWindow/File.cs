@@ -29,6 +29,9 @@ namespace AvionPlot.Views
 
         private void LoadFile(string path)
         {
+            // 🔥🔥🔥 ВОТ ЭТОГО У ТЕБЯ НЕ БЫЛО
+            currentFilePath = path;
+
             data = DataLoader.LoadFromXml(path);
             modelPerGraph.Clear();
 

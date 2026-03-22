@@ -19,7 +19,7 @@ namespace AvionPlot.Views
 
         public event RoutedEventHandler MathModelClicked;
 
-        // 🔥 НОВОЕ СОБЫТИЕ
+        // 🔥 НОВОЕ
         public event RoutedEventHandler NotesClicked;
 
         public MenuBar()
@@ -39,7 +39,7 @@ namespace AvionPlot.Views
 
             MathModelMenuItem.Click += (s, e) => MathModelClicked?.Invoke(s, e);
 
-            // 🔥 ПОДКЛЮЧАЕМ ЗАМЕТКИ
+            // 🔥 КНОПКА "ЗАМЕТКИ"
             NotesMenuItem.Click += (s, e) => NotesClicked?.Invoke(s, e);
         }
 
